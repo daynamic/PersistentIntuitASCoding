@@ -16,14 +16,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.akshat.persistentintuitascoding.ui.theme.PersistentIntuitASCodingTheme
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,24 +43,21 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun TimeList(modifier: Modifier = Modifier) {
-    val listSize = 30
-    val timers = remember { MutableList(listSize) { mutableStateOf(0) } }
+    val viewModel: TimerListViewModel = viewModel()
+    val timers by viewModel.timers.collectAsState()
     val listState = rememberLazyListState()
 
     // Detect visible items and update timers
     LaunchedEffect(listState) {
-        while (isActive) {
-            val visibleIndexes = listState.layoutInfo.visibleItemsInfo.map { it.index }
-            visibleIndexes.forEach { index ->
-                timers[index].value++
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.map { it.index } }
+            .collect { visibleIndexes ->
+                viewModel.updateVisibleItems(visibleIndexes)
             }
-            delay(1000)
-        }
     }
 
     LazyColumn(state = listState) {
-        itemsIndexed(timers) { index, timerState ->
-            TimerListItem(index, timerState.value)
+        itemsIndexed(timers) { index, timerValue ->
+            TimerListItem(index, timerValue)
         }
     }
 }
